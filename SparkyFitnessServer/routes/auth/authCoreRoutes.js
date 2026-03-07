@@ -23,6 +23,7 @@ router.get('/settings', async (req, res) => {
 
         // Environment overrides are now handled within globalSettingsRepository.getGlobalSettings()
         const oidcAutoRedirectEnv = process.env.SPARKY_FITNESS_OIDC_AUTO_REDIRECT === 'true';
+        const signupEnabled = process.env.SPARKY_FITNESS_DISABLE_SIGNUP !== 'true';
 
         const emailEnabled = globalSettings.enable_email_password_login;
         const oidcEnabled = globalSettings.is_oidc_active;
@@ -40,6 +41,9 @@ router.get('/settings', async (req, res) => {
             email: {
                 enabled: emailEnabled
             },
+            signup: {
+                enabled: signupEnabled
+            },
             oidc: {
                 enabled: oidcEnabled,
                 providers: activeProviders,
@@ -53,6 +57,7 @@ router.get('/settings', async (req, res) => {
         const disableEmailLogin = process.env.SPARKY_FITNESS_DISABLE_EMAIL_LOGIN === 'true';
         res.json({
             email: { enabled: forceEmailLogin || !disableEmailLogin },
+            signup: { enabled: process.env.SPARKY_FITNESS_DISABLE_SIGNUP !== 'true' },
             oidc: { enabled: process.env.SPARKY_FITNESS_OIDC_AUTH_ENABLED === 'true', providers: [], auto_redirect: false }
         });
     }

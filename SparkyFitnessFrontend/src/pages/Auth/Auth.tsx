@@ -61,6 +61,7 @@ const Auth = () => {
   const { mutateAsync: registerUser } = useRegisterUserMutation();
   const { mutateAsync: requestMagicLink } = useRequestMagicLinkMutation();
   const { mutateAsync: initiateOidcLogin } = useInitiateOidcLoginMutation();
+  const signupEnabled = loginSettings?.signup?.enabled ?? true;
 
   useEffect(() => {
     const fetchAuthSettings = async () => {
@@ -371,6 +372,174 @@ const Auth = () => {
     }
   };
 
+  const renderSignInContent = () => (
+    <>
+      <form onSubmit={handleSignIn} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="signin-email">Email</Label>
+          <Input
+            id="signin-email"
+            type="email"
+            placeholder="Enter your email"
+            value={email}
+            onChange={(e) => {
+              debug(loggingLevel, 'Auth: Sign In email input changed.');
+              setEmail(e.target.value);
+            }}
+            required
+            autoComplete="username webauthn"
+          />
+        </div>
+        <div className="space-y-2 relative">
+          <Label htmlFor="signin-password">Password</Label>
+          <Input
+            id="signin-password"
+            type={showPassword ? 'text' : 'password'}
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e) => {
+              debug(loggingLevel, 'Auth: Sign In password input changed.');
+              setPassword(e.target.value);
+            }}
+            required
+            autoComplete="current-password webauthn"
+          />
+          <PasswordToggle
+            showPassword={showPassword}
+            passwordToggleHandler={passwordToggleHandler}
+          />
+        </div>
+        <div className="text-right text-sm">
+          <a
+            href="/forgot-password"
+            className="font-medium text-primary hover:underline"
+          >
+            Forgot password?
+          </a>
+        </div>
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? 'Signing in...' : 'Sign In'}
+        </Button>
+      </form>
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted-foreground">
+            Or sign in with
+          </span>
+        </div>
+      </div>
+      <Button
+        variant="outline"
+        className="w-full bg-primary/5 hover:bg-primary/10 border-primary/20 flex items-center justify-center mb-2"
+        onClick={handlePasskeySignIn}
+        disabled={loading}
+      >
+        <Fingerprint className="h-4 w-4 mr-2 text-primary" /> Sign in with
+        Passkey
+      </Button>
+      <Button
+        variant="outline"
+        className="w-full dark:bg-gray-800 dark:hover:bg-gray-600 flex items-center justify-center mb-2"
+        onClick={() => setIsMagicLinkRequestDialogOpen(true)}
+      >
+        <Zap className="h-4 w-4 mr-2" /> Request Magic Link
+      </Button>
+      {loginSettings?.oidc.enabled && (
+        <>
+          {loginSettings.oidc.providers?.map((provider) => (
+            <Button
+              key={provider.id}
+              variant="outline"
+              className="w-full dark:bg-gray-800 dark:hover:bg-gray-600 flex items-center justify-center"
+              onClick={() => {
+                if (provider.id) {
+                  initiateOidcLogin({
+                    providerId: provider.id,
+                    requestSignUp: provider.auto_register,
+                  });
+                }
+              }}
+            >
+              {provider.logo_url && (
+                <img
+                  src={provider.logo_url}
+                  alt={`${provider.display_name} logo`}
+                  className="h-5 w-5 mr-2"
+                />
+              )}
+              {provider.display_name || 'Sign In with OIDC'}
+            </Button>
+          ))}
+        </>
+      )}
+    </>
+  );
+
+  const renderSignUpContent = () => (
+    <form onSubmit={handleSignUp} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="signup-name">Full Name</Label>
+        <Input
+          id="signup-name"
+          type="text"
+          placeholder="Enter your full name"
+          value={fullName}
+          onChange={(e) => {
+            debug(loggingLevel, 'Auth: Sign Up full name input changed.');
+            setFullName(e.target.value);
+          }}
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="signup-email">Email</Label>
+        <Input
+          id="signup-email"
+          type="email"
+          placeholder="Enter your email"
+          value={email}
+          onChange={(e) => {
+            debug(loggingLevel, 'Auth: Sign Up email input changed.');
+            setEmail(e.target.value);
+          }}
+          required
+          autoComplete="username"
+        />
+      </div>
+      <div className="space-y-2 relative">
+        <Label htmlFor="signup-password">Password</Label>
+        <Input
+          id="signup-password"
+          type={showPassword ? 'text' : 'password'}
+          placeholder="Create a password"
+          value={password}
+          onChange={(e) => {
+            debug(loggingLevel, 'Auth: Sign Up password input changed.');
+            setPassword(e.target.value);
+            setPasswordError(validatePassword(e.target.value));
+          }}
+          required
+          autoComplete="new-password"
+        />
+        <PasswordToggle
+          showPassword={showPassword}
+          passwordToggleHandler={passwordToggleHandler}
+        />
+        {passwordError && <p className="text-red-500 text-sm">{passwordError}</p>}
+      </div>
+      <Button
+        type="submit"
+        className="w-full"
+        disabled={loading || !!passwordError}
+      >
+        {loading ? 'Creating account...' : 'Sign Up'}
+      </Button>
+    </form>
+  );
+
   return (
     <>
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
@@ -412,215 +581,38 @@ const Auth = () => {
                 </div>
               )}
               {loginSettings?.email.enabled ? (
-                <Tabs defaultValue="signin" className="w-full">
-                  <TabsList className="h-10 grid w-full grid-cols-2">
-                    <TabsTrigger
-                      value="signin"
-                      onClick={() =>
-                        debug(loggingLevel, 'Auth: Switched to Sign In tab.')
-                      }
-                    >
-                      Sign In
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="signup"
-                      onClick={() =>
-                        debug(loggingLevel, 'Auth: Switched to Sign Up tab.')
-                      }
-                    >
-                      Sign Up
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="signin">
-                    <form onSubmit={handleSignIn} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="signin-email">Email</Label>
-                        <Input
-                          id="signin-email"
-                          type="email"
-                          placeholder="Enter your email"
-                          value={email}
-                          onChange={(e) => {
-                            debug(
-                              loggingLevel,
-                              'Auth: Sign In email input changed.'
-                            );
-                            setEmail(e.target.value);
-                          }}
-                          required
-                          autoComplete="username webauthn"
-                        />
-                      </div>
-                      <div className="space-y-2 relative">
-                        <Label htmlFor="signin-password">Password</Label>
-                        <Input
-                          id="signin-password"
-                          type={showPassword ? 'text' : 'password'}
-                          placeholder="Enter your password"
-                          value={password}
-                          onChange={(e) => {
-                            debug(
-                              loggingLevel,
-                              'Auth: Sign In password input changed.'
-                            );
-                            setPassword(e.target.value);
-                          }}
-                          required
-                          autoComplete="current-password webauthn"
-                        />
-                        <PasswordToggle
-                          showPassword={showPassword}
-                          passwordToggleHandler={passwordToggleHandler}
-                        />
-                      </div>
-                      <div className="text-right text-sm">
-                        <a
-                          href="/forgot-password"
-                          className="font-medium text-primary hover:underline"
-                        >
-                          Forgot password?
-                        </a>
-                      </div>
-                      <Button
-                        type="submit"
-                        className="w-full"
-                        disabled={loading}
+                signupEnabled ? (
+                  <Tabs defaultValue="signin" className="w-full">
+                    <TabsList className="h-10 grid w-full grid-cols-2">
+                      <TabsTrigger
+                        value="signin"
+                        onClick={() =>
+                          debug(loggingLevel, 'Auth: Switched to Sign In tab.')
+                        }
                       >
-                        {loading ? 'Signing in...' : 'Sign In'}
-                      </Button>
-                    </form>
-                    <div className="relative my-6">
-                      <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t" />
-                      </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-background px-2 text-muted-foreground">
-                          Or sign in with
-                        </span>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="w-full bg-primary/5 hover:bg-primary/10 border-primary/20 flex items-center justify-center mb-2"
-                      onClick={handlePasskeySignIn}
-                      disabled={loading}
-                    >
-                      <Fingerprint className="h-4 w-4 mr-2 text-primary" /> Sign
-                      in with Passkey
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full dark:bg-gray-800 dark:hover:bg-gray-600 flex items-center justify-center mb-2"
-                      onClick={() => setIsMagicLinkRequestDialogOpen(true)}
-                    >
-                      <Zap className="h-4 w-4 mr-2" /> Request Magic Link
-                    </Button>
-                    {loginSettings?.oidc.enabled && (
-                      <>
-                        {loginSettings.oidc.providers?.map((provider) => (
-                          <Button
-                            key={provider.id}
-                            variant="outline"
-                            className="w-full dark:bg-gray-800 dark:hover:bg-gray-600 flex items-center justify-center"
-                            onClick={() => {
-                              if (provider.id) {
-                                initiateOidcLogin({
-                                  providerId: provider.id,
-                                  requestSignUp: provider.auto_register,
-                                });
-                              }
-                            }}
-                          >
-                            {provider.logo_url && (
-                              <img
-                                src={provider.logo_url}
-                                alt={`${provider.display_name} logo`}
-                                className="h-5 w-5 mr-2"
-                              />
-                            )}
-                            {provider.display_name || 'Sign In with OIDC'}
-                          </Button>
-                        ))}
-                      </>
-                    )}
-                  </TabsContent>
-
-                  <TabsContent value="signup">
-                    <form onSubmit={handleSignUp} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="signup-name">Full Name</Label>
-                        <Input
-                          id="signup-name"
-                          type="text"
-                          placeholder="Enter your full name"
-                          value={fullName}
-                          onChange={(e) => {
-                            debug(
-                              loggingLevel,
-                              'Auth: Sign Up full name input changed.'
-                            );
-                            setFullName(e.target.value);
-                          }}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="signup-email">Email</Label>
-                        <Input
-                          id="signup-email"
-                          type="email"
-                          placeholder="Enter your email"
-                          value={email}
-                          onChange={(e) => {
-                            debug(
-                              loggingLevel,
-                              'Auth: Sign Up email input changed.'
-                            );
-                            setEmail(e.target.value);
-                          }}
-                          required
-                          autoComplete="username"
-                        />
-                      </div>
-                      <div className="space-y-2 relative">
-                        <Label htmlFor="signup-password">Password</Label>
-                        <Input
-                          id="signup-password"
-                          type={showPassword ? 'text' : 'password'}
-                          placeholder="Create a password"
-                          value={password}
-                          onChange={(e) => {
-                            debug(
-                              loggingLevel,
-                              'Auth: Sign Up password input changed.'
-                            );
-                            setPassword(e.target.value);
-                            setPasswordError(validatePassword(e.target.value));
-                          }}
-                          required
-                          autoComplete="new-password"
-                        />
-                        <PasswordToggle
-                          showPassword={showPassword}
-                          passwordToggleHandler={passwordToggleHandler}
-                        />
-                        {passwordError && (
-                          <p className="text-red-500 text-sm">
-                            {passwordError}
-                          </p>
-                        )}
-                      </div>
-                      <Button
-                        type="submit"
-                        className="w-full"
-                        disabled={loading || !!passwordError}
+                        Sign In
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="signup"
+                        onClick={() =>
+                          debug(loggingLevel, 'Auth: Switched to Sign Up tab.')
+                        }
                       >
-                        {loading ? 'Creating account...' : 'Sign Up'}
-                      </Button>
-                    </form>
-                  </TabsContent>
-                </Tabs>
+                        Sign Up
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="signin">
+                      {renderSignInContent()}
+                    </TabsContent>
+
+                    <TabsContent value="signup">
+                      {renderSignUpContent()}
+                    </TabsContent>
+                  </Tabs>
+                ) : (
+                  <div className="w-full">{renderSignInContent()}</div>
+                )
               ) : (
                 <div>
                   {loginSettings?.oidc.enabled &&

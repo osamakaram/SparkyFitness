@@ -19,6 +19,9 @@ export interface LoginSettings {
   email: {
     enabled: boolean;
   };
+  signup: {
+    enabled: boolean;
+  };
   oidc: {
     enabled: boolean;
     providers: OidcProvider[];

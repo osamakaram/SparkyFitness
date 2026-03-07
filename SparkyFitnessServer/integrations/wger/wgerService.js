@@ -2,7 +2,7 @@ const { log } = require('../../config/logging');
 const NodeCache = require('node-cache');
 const { muscleNameMap, equipmentNameMap, forceMap, mechanicMap } = require('./wgerNameMapping');
 
-const WGER_API_BASE_URL = 'https://wger.de/api/v2';
+const WGER_API_BASE_URL = (process.env.SPARKY_FITNESS_WGER_BASE_URL || 'https://wger.de/api/v2').replace(/\/+$/, '');
 const WGER_CACHE_DURATION_SECONDS = 3600; // Cache for 1 hour
 const wgerCache = new NodeCache({ stdTTL: WGER_CACHE_DURATION_SECONDS });
 

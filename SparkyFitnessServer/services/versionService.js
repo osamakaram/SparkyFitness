@@ -2,6 +2,10 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
+const GITHUB_RELEASES_URL = 'https://api.github.com/repos/CodeWithCJ/SparkyFitness/releases/latest';
+const GITHUB_RELEASES_FALLBACK_URL = 'https://github.com/CodeWithCJ/SparkyFitness/releases';
+const GITHUB_RELEASE_TIMEOUT_MS = 5000;
+
 // Function to get the application version from package.json
 function getAppVersion() {
     try {
@@ -16,11 +20,18 @@ function getAppVersion() {
 
 async function getLatestGitHubRelease() {
     const currentVersion = getAppVersion();
-    // Assuming your GitHub repo is public, otherwise you'd need an API token
-    const repoUrl = 'https://api.github.com/repos/CodeWithCJ/SparkyFitness/releases/latest';
+    const normalizedCurrentVersion = currentVersion.startsWith('v')
+        ? currentVersion
+        : `v${currentVersion}`;
 
     try {
-        const response = await axios.get(repoUrl);
+        const response = await axios.get(GITHUB_RELEASES_URL, {
+            headers: {
+                'Accept': 'application/vnd.github+json',
+                'User-Agent': 'SparkyFitness-Version-Check'
+            },
+            timeout: GITHUB_RELEASE_TIMEOUT_MS
+        });
         const latestRelease = response.data;
         const latestVersion = latestRelease.tag_name.replace('v', ''); // Assumes tags are like 'v1.2.3'
 
@@ -32,8 +43,14 @@ async function getLatestGitHubRelease() {
             isNewVersionAvailable: latestVersion !== currentVersion
         };
     } catch (error) {
-        console.error('Error fetching latest GitHub release:', error);
-        throw new Error('Failed to fetch latest GitHub release');
+        console.warn('Falling back to current version after GitHub release check failed:', error.message);
+        return {
+            version: normalizedCurrentVersion,
+            releaseNotes: '',
+            publishedAt: '',
+            htmlUrl: GITHUB_RELEASES_FALLBACK_URL,
+            isNewVersionAvailable: false
+        };
     }
 }
 
